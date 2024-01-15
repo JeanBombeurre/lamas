@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/>
+<style>
+	body,html{
+		overflow:hidden;
+		margin: 0;
+		background-color: white;
+	}
+	canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+	}
+</style>
+<title>El Wortbildung</title>
+<script src="Matrix.js"></script>
+	<script src="WebglRenderer.js"></script>
+	<script src="ModelsLAMA.js"></script>
+	<script src="LAMAGeneration.js"></script>
+	<script src="perlin.js"></script>
+	<script src="MOTO.js"></script>
+	<script src="lamaClass.js"></script>
+	<script src="menu.js"></script>
+	<script src="gestionMusique.js"></script>
+	<script src="autruches.js"></script>
+	
+</head>
+<body style="background-color:white;" onmousemove="mousemove(event)" onmousedown="mp(event)">
+	<center><canvas id='canvas' width=1000 height=500></canvas></center>
+<script>
+let canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl');
+let w=new Renderer(gl)
+document.onkeydown=kd
+document.onkeyup=ku
+let keysPressed={}
+function kd(e){
+	keysPressed[e.key]=1
+}
+function ku(e){
+	keysPressed[e.key]=undefined
+}
+function mousemove(e){
+	let x=e.clientX
+	let y=e.clientY
+	mousePos.x=x-canvas.width/2
+	mousePos.y=canvas.height/2-y
+	
+}
+
+let mousePos={x:0,y:0}
+faireMenu()
+
+let fps=0
+let cam=new Cam(p(0.1,10,0.1),p(0,0,1),700)
+let go=0
+let t=-1
+let voit=new Voit(p(-11.2,20,-10.2))
+let posSoleil=p(20000,30000,0)
+let caminu={dir:p(0,0,1)}
+let RATEFPS=1
+let score=-1
+function game(){
+	for(let i=-3;i<3;i++){
+		for(let j=-3;j<3;j++){
+			Tuile.generateChunk(i*100,j*100)
+		}
+	}
+	let inuSol=Model.l['soleil'].createPolyByMatrix(PtCart.pv(p(0,1,0),posSoleil.u().moins(p(0,1,0))).u().times(posSoleil.u().y).vitAngulaire_mat().apply((x)=>x*5000).cast(4).translate(posSoleil))
+	w.addBGPoly(...inuSol.getAff())
+	for(let i=0;i<42;i++){
+		new Lama(p(Math.random()*300-150,0,Math.random()*300-150),Math.random()*Math.PI*2)
+	}
+	for(let i=0;i<10;i++){
+		new Autruche(p(Math.random()*300-150,Math.random()*40+50,Math.random()*300-150),Math.random()*Math.PI*2)
+	}
+	
+	Music.stopAll()
+	new Music("lama_sam_2.mp3",0.2,1);
+	new Music("renault_master_demarrage.mp3",1,0)
+	voit.engineSound=new Music("renault_master_moteur.mp3",0.3,1)
+	//new Music("jeep_roule.mp3",0,1)
+	go=1
+	main()
+}
+function main(){
+	fps++
+	t+=1
+	Tuile.generate(cam.pos,cam.dir)
+	Lama.suppress=0////////doit etre avant lama.actu
+	if(t%3==0){Lama.placeAll()}
+	let listePoly=[]
+	if(score!=-1){
+		//listePoly.push(Model.l.endscore.createPolyByMatrix(p(0,-3,5).mat4().trans(cam.viewMatrix())))
+		listePoly.push(Model.l.endscore.createPolyByMatrix(p(0,-Math.PI/2,0).vitAngulaire_mat().cast(4).translate(p(10000,5000,0))))
+	}
+	listePoly.push(voit.actu())
+	for(let i=0;i<Lama.l.length;i++){
+		listePoly.push(Lama.l[i].actu())
+	}
+	for(let i=0;i<Autruche.l.length;i++){
+		listePoly.push(Autruche.l[i].actu())
+	}
+	//listePoly.push(Model.l["voiture"].createPolyByMatrix(Matrix.translate(p(0,5,10))))
+	if(t%RATEFPS==0){w.drawPolys(listePoly,cam)}
+	Lama.poubelle()
+	Autruche.garbage()
+	
+	Lama.boumAll(voit)
+	/*
+	let inu={'q':p(-1,0,0),"s":p(0,0,-1),"z":p(0,0,1),"d":p(1,0,0),"e":p(0,-1,0),"a":p(0,1,0)}
+	let m=Matrix.fromPoints(PtCart.pv(cam.dir.moins(p(0,cam.dir.y,0)).u(),p(0,1,0)),p(0,1,0),cam.dir.moins(p(0,cam.dir.y,0)).u())
+	for(let i in inu){
+		if(keysPressed[i]){
+			cam.pos=cam.pos.plus(inu[i].times(1).mat3().trans(m).pt())
+		}
+	}
+	
+	if(cam.dir.y>-0.9){if(keysPressed.ArrowDown){cam.dir=new PtPol(1,cam.dir.pol().phi-0.05,cam.dir.pol().theta).cart()}}
+	if(cam.dir.y<0.9){if(keysPressed.ArrowUp){cam.dir=new PtPol(1,cam.dir.pol().phi+0.05,cam.dir.pol().theta).cart()}}
+	if(keysPressed.ArrowRight){cam.dir=new PtPol(1,cam.dir.pol().phi,cam.dir.pol().theta+0.05).cart()}
+	if(keysPressed.ArrowLeft){cam.dir=new PtPol(1,cam.dir.pol().phi,cam.dir.pol().theta-0.05).cart()}
+	*/
+	
+	
+	cam.pos=cam.pos.plus(p(0,10,-35).mat4().trans(voit.glob).pt().moins(cam.pos).times(0.2))
+	caminu.dir=caminu.dir.plus(voit.glob.pt(2).moins(caminu.dir).times(0.2)).u()
+	cam.dir=voit.glob.pt(2).times(2).moins(caminu.dir).u()
+	let inu=Tuile.topo(cam.pos)
+	if(inu.h<3){
+		cam.pos.y-=inu.h-3
+	}
+	
+	let accVit=0.08
+	let engineSound=0
+	if(keysPressed.ArrowUp){
+		for(let i=0;i<voit.roues.length-2;i++){voit.roues[i].va+=accVit}
+		engineSound=1
+	}
+	if(keysPressed.ArrowDown){
+		for(let i=0;i<voit.roues.length-2;i++){voit.roues[i].va-=accVit}
+		engineSound=1
+	}
+	if(voit.engineSound){voit.engineSound.audio.volume+=(engineSound*0.6-voit.engineSound.audio.volume)/5}
+	if(keysPressed.ArrowRight){
+		voit.roues[2].butTheta=-0.3
+		voit.roues[3].butTheta=-0.3
+	}else if(keysPressed.ArrowLeft){
+		voit.roues[2].butTheta=0.3
+		voit.roues[3].butTheta=0.3
+	}else{
+		voit.roues[2].butTheta=0
+		voit.roues[3].butTheta=0
+	}
+	if(keysPressed[" "]){
+		for(let i=0;i<2;i++){
+			voit.roues[i].driftX=1
+			///voit.roues[i].driftY=1
+			//voit.roues[i].va=0
+		}
+	}else{
+		for(let i=0;i<2;i++){
+			voit.roues[i].driftX=0.8
+			voit.roues[i].driftY=0.8
+		}
+	}
+	if(t%10==0){Music.garbage()}
+	if(Lama.l.length==0 && score==-1){
+		score=t
+		console.log("FINI EN "+t+" FRAMES (ENVIRON "+t/60+" SECONDES)")
+		new Model([],[],[],"endscore")
+		let msg="FINI EN "+t+" FRAMES / ENVIRON "+Math.round(t/60)+" SECONDES"
+		let l=msg.length
+		let w=300
+		for(let i=0;i<l;i++){
+			Model.l.endscore.addPoly(motPoly(msg[i],1,w).translate(p(-l/2*w*2.5+i*w*2.5,0,0)))
+		}
+	}
+	if(go){
+		window.requestAnimationFrame(main)
+	}
+}
+function actufps(){
+	console.log(fps)
+	if(fps>50 && RATEFPS>1){RATEFPS--}
+	if(fps<30 && RATEFPS<4){RATEFPS++}
+	
+	fps=0
+	setTimeout(actufps,1000)
+	
+}
+actufps()
+</script>
+</body>
+</html>
